@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import sys
+from sys import argv
 from model_parameters import *
 from electrostatics import *
 from nonlinsolvers import *
@@ -15,6 +16,9 @@ mpl.rc('ytick',labelsize=15)
 mp=setmodelparams()
 mp['bulkpot']=1
 vp=20.0
+mp['solidsvfrac']=float(argv[1])
+numberden=mp['solidsvfrac']/(4/3*np.pi*modelParams['rp']**3) 
+print("particle number density:",numberden)
 
 (qt,tloc)=tangent_solve_bisection(0.0,60e-9,mp,N=100000)
 print("qt,tloc",qt,tloc)
@@ -31,14 +35,14 @@ print("delq:",delq)
 Vimg_postcoll,Vtot_postcoll=imagebulkpot_arr(qt+delq,mp['rp'],zp,mp)
 
 #find number of collisions to get to tangent
-charge=0.0
+'''charge=0.0
 ncoll=0
 while(charge < qt):
     dq=contact_charge(charge,vp,mp)
     charge=charge+dq
     ncoll+=1
 
-print("charge,ncoll",charge,ncoll)
+print("charge,ncoll",charge,ncoll)'''
 
 
 plt.figure()
@@ -53,12 +57,11 @@ plt.legend()
 
 fig,ax=plt.subplots(2,2)
 #plasma solve
-dq=contact_charge(charge,vp,mp)
 print("solving intersect")
 #z1=fsolve(solve_intersect, [1.1*mp['dc_SI']], \
 #        args=(qt+dq,mp))[0]
 
-(intersectflag,zint)=intersect_solve_graphical(qt+dq,mp)
+(intersectflag,zint)=intersect_solve_graphical(qt+delq,mp)
 if(intersectflag==False):
     print("does not intersect")
     sys.exit()
@@ -78,8 +81,8 @@ ne=np.zeros(Npts_z-1)+ne_init
 nex=np.zeros(Npts_z)+nex_init
 vf=vp*mp['e_rest']
 dz=z1z2[1]-z1z2[0]
-print("dz,qin,dq,z1:",dz,qt,dq,z1)
-q1=qt+dq
+print("dz,qin,delq,z1:",dz,qt,delq,z1)
+q1=qt+delq
 q2=qt
 V1=paschen(mp['B'],mp['C'],mp['pres'],z1z2[0])
 V2=V1
@@ -142,6 +145,12 @@ plt.tight_layout()
 
 np.savetxt("spec_mult.dat",np.transpose(np.vstack((z1z2,z1z2/np.max(z1z2),nex))),delimiter="  ")
 
+outfile=open("rundata_multi","a")
+outfile.write("%e\t%e\t%e\t"%(mp['solidsvfrac'],delq,qt))
+outfile.write("%e\t%e\t%e\t%e\t%e\t%e\t"%(np.max(Te),np.mean(Te),np.max(ne),np.mean(ne),np.max(nex),np.mean(nex)))
+outfile.write("%e\t%e\n"%(np.max(qrelax),np.min(qrelax)))
+outfile.close()
+
 plt.figure()
 plt.plot(0.5*(z1z2[1:]+z1z2[0:-1]),ne,'r*')
-plt.show()
+#plt.show()

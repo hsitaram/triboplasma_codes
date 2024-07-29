@@ -26,10 +26,11 @@ vpmidarr=0.5*(velparts[0:-1]+velparts[1:])
 cdist=collidingdist(velparts,grantemp)
 print("cdist:",cdist)
 print("gaussdist integral:",np.trapz(cdist,velparts))
+numberden=mp['solidsvfrac']/(4/3*np.pi*mp['rp']**3) 
 
 Nparts=np.zeros(Npartitions)
 for pt in range(Npartitions):
-    Nparts[pt]=mp['np']*collidingdist(0.5*(velparts[pt]+velparts[pt+1]),\
+    Nparts[pt]=numberden*collidingdist(0.5*(velparts[pt]+velparts[pt+1]),\
             grantemp)
 
 qpart=np.zeros(Npartitions)

@@ -4,7 +4,8 @@ from constants import *
 
 def bulkpot(mp,q,z):
     bpflag=mp['bulkpot']
-    Vb=mp['np']*q/(2.0*eps0)
+    numden=mp['solidsvfrac']/(4/3*np.pi*mp['rp']**3)
+    Vb=numden*q/(2.0*eps0)
     L=mp['cht']
     Vb=Vb*(z*L-z**2)
     return(Vb*bpflag)

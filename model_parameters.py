@@ -65,11 +65,11 @@ def setmodelparams():
     modelParams['rp']=0.002
     modelParams['cht']=100.0*modelParams['rp'] #channel ht
     
+    # bulk potential on?
     modelParams['bulkpot']=0
-    solidsvfrac=0.02 #dilute granular flow
-    # of particles per m3
-    modelParams['np']=solidsvfrac/(4/3*np.pi*modelParams['rp']**3) 
-    print("np:",modelParams['np'])
+    
+    # solids volume fraction
+    modelParams['solidsvfrac']=0.02 #dilute granular flow
 
     #Paschen breakdown in N2 atmosphere, Raizer's texbook
     #fit of N2 curve
