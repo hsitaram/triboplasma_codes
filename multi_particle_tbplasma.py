@@ -15,13 +15,20 @@ mpl.rc('ytick',labelsize=15)
 
 mp=setmodelparams()
 mp['bulkpot']=1
-vp=20.0
-mp['solidsvfrac']=float(argv[1])
-numberden=mp['solidsvfrac']/(4/3*np.pi*modelParams['rp']**3) 
+vp=float(argv[1])
+mp['solidsvfrac']=float(argv[2])
+numberden=mp['solidsvfrac']/(4/3*np.pi*mp['rp']**3) 
 print("particle number density:",numberden)
+mp['rp']=float(argv[3])
+mp['cht']=float(argv[4])
 
-(qt,tloc)=tangent_solve_bisection(0.0,60e-9,mp,N=100000)
+
+(qt,tloc)=tangent_solve_bisection(0.0,10e-9,mp,N=100000)
 print("qt,tloc",qt,tloc)
+qf2_z2=fsolve(solve_tangent, [qt,tloc], \
+        args=(mp),xtol=1e-12)
+print("qf2,z2",qf2_z2[0],qf2_z2[1])
+print("error:",solve_tangent(qf2_z2,mp))
 
 N=100000
 max_z_log10=np.log10(5000.0*mp['dc_SI'])
@@ -32,6 +39,10 @@ Vimg_tangent,Vtot_tangent=imagebulkpot_arr(qt,mp['rp'],zp,mp)
 
 delq=contact_charge(qt,vp,mp)
 print("delq:",delq)
+if(delq<0):
+    print("contact charge less than 0")
+    sys.exit()
+
 Vimg_postcoll,Vtot_postcoll=imagebulkpot_arr(qt+delq,mp['rp'],zp,mp)
 
 #find number of collisions to get to tangent
@@ -146,11 +157,13 @@ plt.tight_layout()
 np.savetxt("spec_mult.dat",np.transpose(np.vstack((z1z2,z1z2/np.max(z1z2),nex))),delimiter="  ")
 
 outfile=open("rundata_multi","a")
-outfile.write("%e\t%e\t%e\t"%(mp['solidsvfrac'],delq,qt))
+outfile.write("%e\t%e\t%e\t%e\t"%(vp,mp['solidsvfrac'],mp['rp'],mp['cht']))
+outfile.write("%e\t%e\t"%(delq,qt))
+outfile.write("%e\t%e\t"%(z1z2[0],z1z2[-1]))
 outfile.write("%e\t%e\t%e\t%e\t%e\t%e\t"%(np.max(Te),np.mean(Te),np.max(ne),np.mean(ne),np.max(nex),np.mean(nex)))
 outfile.write("%e\t%e\n"%(np.max(qrelax),np.min(qrelax)))
 outfile.close()
 
 plt.figure()
 plt.plot(0.5*(z1z2[1:]+z1z2[0:-1]),ne,'r*')
-#plt.show()
+plt.show()

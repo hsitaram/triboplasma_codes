@@ -62,14 +62,14 @@ def setmodelparams():
     modelParams['nu_wall'] = 0.5*modelParams['E_wall']/modelParams['G_wall']-1.0
     modelParams['rho_wall'] =2700.0 #kg/m3
 
-    modelParams['rp']=0.002
-    modelParams['cht']=100.0*modelParams['rp'] #channel ht
+    modelParams['rp']=0.002 #particle radius (1 mm)
+    modelParams['cht']=0.25 #channel size (25 cm)
     
     # bulk potential on?
     modelParams['bulkpot']=0
     
     # solids volume fraction
-    modelParams['solidsvfrac']=0.02 #dilute granular flow
+    modelParams['solidsvfrac']=0.03 #dilute granular flow
 
     #Paschen breakdown in N2 atmosphere, Raizer's texbook
     #fit of N2 curve
