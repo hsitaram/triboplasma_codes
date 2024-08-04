@@ -28,7 +28,15 @@ print("qt,tloc",qt,tloc)
 qf2_z2=fsolve(solve_tangent, [qt,tloc], \
         args=(mp),xtol=1e-12)
 print("qf2,z2",qf2_z2[0],qf2_z2[1])
-print("error:",solve_tangent(qf2_z2,mp))
+err=solve_tangent(qf2_z2,mp)
+print("error:",err)
+meanerr=0.5*(abs(err[0])+abs(err[1]))
+if(meanerr < 1e-9):
+    qt=qf2_z2[0]
+    tloc=qf2_z2[1]
+else:
+    print("tangent finding errors:",err)
+    sys.exit()
 
 N=100000
 max_z_log10=np.log10(5000.0*mp['dc_SI'])
