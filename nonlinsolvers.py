@@ -12,8 +12,13 @@ def solve_tangent(soln,mp):
     z=soln[1]
     paschen_der=mp['B']*mp['pres']*(mp['C']+np.log(mp['pres']*z)-1)/((mp['C']+np.log(mp['pres']*z))**2.0)
     image_der=q/(2.0*np.pi*eps0)/((mp['rp']+2*z)**2)
-    f1=paschen_der-image_der
-    f2=paschen(mp['B'],mp['C'],mp['pres'],z)-imagepot(q,mp['rp'],z,mp)
+
+    numden=mp['solidsvfrac']/(4/3*np.pi*mp['rp']**3)
+    L=mp['cht']
+    Vbulk_der=numden*q/(2.0*eps0)*(L-2.0*z)
+    
+    f1=paschen_der-image_der-mp['bulkpot']*Vbulk_der
+    f2=paschen(mp['B'],mp['C'],mp['pres'],z)-imagepot(q,mp['rp'],z,mp)-mp['bulkpot']*bulkpot(mp,q,z)
     return([f1,f2])
 
 def tangent_solve_bisection(qg1,qg2,mp,N=1000000,itmax=20):

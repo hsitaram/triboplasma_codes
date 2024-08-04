@@ -40,7 +40,7 @@ Vimg_postcoll,Vtot_postcoll=imagebulkpot_arr(qt+delq,mp['rp'],zp,mp)
 
 #print("charge,ncoll",charge,ncoll)
 
-
+np.savetxt("pascurve.dat",np.transpose(np.vstack((zp,Vbr))),delimiter="  ")
 plt.figure()
 plt.plot(zp,Vbr,color="black",linestyle="dashed",label="Paschen curve",linewidth=3)
 #plt.plot(zp[int(0.625*len(zp)):],Vimg_tangent[int(0.625*len(zp)):],color="blue",linestyle="dotted",label="tangent img",linewidth=3)
