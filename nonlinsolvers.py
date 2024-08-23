@@ -65,7 +65,7 @@ def solve_intersect_q(soln,z,mp):
     f=paschen(mp['B'],mp['C'],mp['pres'],z)-imagebulkpot(q,mp['rp'],z,mp)
     return([f])
 
-def solve_Te_electronflux(soln,mp,z):
+def solve_Te_electronflux(soln,z,mp):
     Te=soln[0]
     vol=np.pi*(mp['rp']**2)*z
     A=np.pi*(mp['rp']**2)
@@ -74,7 +74,7 @@ def solve_Te_electronflux(soln,mp,z):
     f=rate_ionize*mp['NG']*vol-(cbar/2.0)*A
     return([f])
 
-def solve_Te_bohmflux(soln,mp,z):
+def solve_Te_bohmflux(soln,z,mp):
     Te=soln[0]
     vol=np.pi*(mp['rp']**2)*z
     A=np.pi*(mp['rp']**2)
@@ -83,7 +83,7 @@ def solve_Te_bohmflux(soln,mp,z):
     f=rate_ionize*mp['NG']*vol-uB*A*0.5
     return([f])
 
-def solve_Te_ambipolar(soln,mp,z):
+def solve_Te_ambipolar(soln,z,mp):
     Te=soln[0]
     Da=mp['D_i']*(1.0+Te/mp['Temp'])
     beta2=np.pi**2/z**2
@@ -93,7 +93,7 @@ def solve_Te_ambipolar(soln,mp,z):
     f=rate_ionize*mp['NG']-beta2*Da
     return([f])
 
-def solve_Te(soln,mp,z):
-    return(solve_Te_ambipolar(soln,mp,z))
-    #return(solve_Te_bohmflux(soln,mp,z))
-    #return(solve_Te_electronflux(soln,mp,z))
+def solve_Te(soln,z,mp):
+    return(solve_Te_ambipolar(soln,z,mp))
+    #return(solve_Te_bohmflux(soln,z,mp))
+    #return(solve_Te_electronflux(soln,z,mp))

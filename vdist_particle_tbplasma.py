@@ -8,12 +8,13 @@ from distfuncs import *
 from matplotlib.collections import LineCollection
 
 #main
+solvertol=1e-8
 font={'family':'Helvetica', 'size':'15'}
 mpl.rc('font',**font)
 mpl.rc('xtick',labelsize=15)
 mpl.rc('ytick',labelsize=15)
 
-grantemp=500.0 #m2/s2
+grantemp=100.0 #m2/s2
 
 mp=setmodelparams()
 mp['bulkpot']=1
@@ -26,7 +27,8 @@ vpmidarr=0.5*(velparts[0:-1]+velparts[1:])
 cdist=collidingdist(velparts,grantemp)
 print("cdist:",cdist)
 print("gaussdist integral:",np.trapz(cdist,velparts))
-numberden=mp['solidsvfrac']/(4/3*np.pi*mp['rp']**3) 
+numberden=mp['solidsvfrac']/(4/3*np.pi*mp['rp']**3)
+print("numberden:",numberden)
 
 Nparts=np.zeros(Npartitions)
 for pt in range(Npartitions):
@@ -37,6 +39,18 @@ qpart=np.zeros(Npartitions)
 
 (qt,tloc)=tangent_solve_bisection(0.0,60e-9,mp,N=10000)
 print("qt,tloc",qt,tloc)
+qf2_z2=fsolve(solve_tangent, [qt,tloc], \
+        args=(mp),xtol=1e-12)
+print("qf2,z2",qf2_z2[0],qf2_z2[1])
+err=solve_tangent(qf2_z2,mp)
+print("error:",err)
+meanerr=0.5*(abs(err[0])+abs(err[1]))
+if(meanerr < 1e-8):
+    qt=qf2_z2[0]
+    tloc=qf2_z2[1]
+else:
+    print("tangent finding errors:",err)
+    sys.exit()
 
 N=1000000
 max_z_log10=np.log10(5000.0*mp['dc_SI'])
@@ -78,9 +92,11 @@ Npts_z=1000
 z1=np.zeros(Npartitions)
 qrelax=np.zeros((Npartitions,Npts_z))
 ne_init=1e12
+ndiss_init=1e12
 nex_init=1e12
 Te=np.zeros((Npartitions,Npts_z))+evtemp
 ne=np.zeros((Npartitions,Npts_z-1))+ne_init
+ndiss=np.zeros((Npartitions,Npts_z))+ndiss_init
 nex=np.zeros((Npartitions,Npts_z))+nex_init
 
 
@@ -101,53 +117,79 @@ for pt in range(Npartitions):
     z2=tloc
     #print("z1,z2:",z1,z2)
     z1z2=np.linspace(z1[pt],z2,Npts_z)
-    Te[pt][0]=fsolve(solve_Te, [evtemp*10.0],args=(mp,z1z2[0]))[0]
+    Te[pt][0]=fsolve(solve_Te, [evtemp*10.0],args=(z1z2[0],mp))[0]
     vf=vp*mp['e_rest']
     dz=z1z2[1]-z1z2[0]
     #print("dz,qin,dq,z1,z2:",dz,qt,dq,z1[pt],z2)
     q1=qt+dq
     q2=qt
     qrelax[pt][0]=q1
+
+    area_scaling=1.0
+    discharge_area=get_acoll(vp,mp)
+    max_area=np.pi*(mp['rp']**2)
+    max_area_scaling=max_area/discharge_area
+    print("max area scaling:",max_area_scaling)
+    if(area_scaling < max_area_scaling):
+        discharge_area*=area_scaling
+    else:
+        print("area scaling greater than max value of %f"%(max_area_scaling))
+        sys.exit(0)
+
     for i in range(Npts_z-1):
         #print(z1z2[i])
         #we are solving what happens between i and i+1
-        Te[pt][i+1]=fsolve(solve_Te, [evtemp*1.0],args=(mp,z1z2[i+1]))[0]
+        Te[pt][i+1]=fsolve(solve_Te, [evtemp*1.0],args=(z1z2[i+1],mp))[0]
         Te_avg=0.5*(Te[pt][i]+Te[pt][i+1])
         rate_ionize=arrh_rate(mp['Aiz'],mp['alphaiz'],mp['Ta_iz'],Te_avg)
         rate_diss=arrh_rate(mp['Ad'],mp['alphad'],mp['Ta_d'],Te_avg)
+        rate_ex=arrh_rate(mp['Aex'],mp['alphaex'],mp['Ta_ex'],Te_avg)
         
         cbar=np.sqrt(8.0*kboltz*Te_avg/np.pi/melec)
-        radfactor=1.0
-        vol=np.pi*(mp['rp']**2)*z1z2[i]/radfactor**2
-        area=np.pi*(mp['rp']**2)/radfactor**2
-        q2=fsolve(solve_intersect_q, [qt], \
+        
+        #radfactor=1.0
+        #discharge_vol=np.pi*(mp['rp']**2)*z1z2[i]/radfactor**2
+        #discharge_area=np.pi*(mp['rp']**2)/radfactor**2
+        
+        discharge_vol=discharge_area*z1z2[i]
+
+        q2=fsolve(solve_intersect_q, [1.1*q1], \
         args=(z1z2[i+1],mp))[0]
         delEdt=1.0/(8.0*np.pi*eps0*mp['rp'])*(q1**2-q2**2)/dz*vf
     
         #high pressure ambipolar solution
         Da=mp['D_i']*(1.0+Te_avg/mp['Temp'])
         Gama_by_n0=Da*np.pi/z1z2[i+1]
-        Eloss_c=rate_ionize*mp["NG"]*mp['Eiz']*echarge*vol+rate_diss*mp["NG"]*mp['Ed']*echarge*vol
-        Eloss_e=(2*kboltz*Te_avg)*2.0*Gama_by_n0*area
-        Eloss=Eloss_c+Eloss_e
+        Eloss_inel=rate_ionize*mp["NG"]*mp['Eiz']*echarge*discharge_vol+\
+                rate_diss*mp["NG"]*mp['Ed']*echarge*discharge_vol+\
+                rate_ex*mp["NG"]*mp['Eex']*echarge*discharge_vol
+
+        Eloss_el=1.5*kboltz*(Te_avg-mp['Temp'])*\
+                (2.0*melec)/mp['m_gas']*collfreq(Te_avg,mp)*discharge_vol
+        Eloss_w=(2*kboltz*Te_avg)*2.0*Gama_by_n0*discharge_area
+        Eloss=Eloss_inel+Eloss_w+Eloss_el
         
-        #Eloss=rate_ionize*mp["NG"]*mp['Ei']*echarge*vol+rate_ex*mp["NG"]*mp['Eex']*echarge*vol+0.5*cbar*area*(2*kboltz*Te_avg)
+        #Eloss=rate_ionize*mp["NG"]*mp['Ei']*echarge*discharge_vol+rate_ex*mp["NG"]* \
+        #mp['Eex']*echarge*discharge_vol+0.5*cbar*discharge_area*(2*kboltz*Te_avg)
         #print("Te,rate1,rate2,Eloss:",Te[pt][i],rate_ionize,rate_ex,Eloss)
         #uB=np.sqrt(kboltz*Te_avg/mp['m_ion'])
         #print("Eloss before:",Eloss)
-        #Eloss += uB*area*(5.0*kboltz*Te_avg) 
+        #Eloss += uB*discharge_area*(5.0*kboltz*Te_avg) 
         #print("Eloss after:",Eloss)
         #Eloss=rate_ionize*mp["NG"]*mp['Ei']*echarge
         #+rate_ex*mp["       NG"]*mp['Eex']*echarge+2.5*kboltz*Te[i]
-        #Eloss=Eloss*uB*area
+        #Eloss=Eloss*uB*discharge_area
         
         ne[pt][i]=mp["EJfrac"]*delEdt/Eloss
-        nex[pt][i+1]=nex[pt][i]+mp['dissmoles']*rate_diss*mp['NG']*ne[pt][i]/vf*dz
+        ndiss[pt][i+1]=ndiss[pt][i]+mp['dissmoles']*rate_diss*mp['NG']*ne[pt][i]/vf*dz
+        nex[pt][i+1]=nex[pt][i]+rate_ex*mp['NG']*ne[pt][i]/vf*dz
         qrelax[pt][i+1]=q2
         q1=np.copy(q2)
         
-    print("vp,max/min ne,max/min nex,max/min Te:",\
+    print("vp, ne max/min, ndiss max/min, \
+            nex max/min, Te:",\
             vp, np.max(ne[pt][:]),np.min(ne[pt][:]), \
+            np.max(ndiss[pt][:]), np.min(ndiss[pt][:]), \
             np.max(nex[pt][:]), np.min(nex[pt][:]), \
             np.max(Te[pt][:]),np.min(Te[pt][:]))
 

@@ -8,6 +8,7 @@ from nonlinsolvers import *
 from distfuncs import *
 
 #main
+solvertol=1e-8
 font={'family':'Helvetica', 'size':'15'}
 mpl.rc('font',**font)
 mpl.rc('xtick',labelsize=15)
@@ -26,12 +27,12 @@ mp['cht']=float(argv[4])
 (qt,tloc)=tangent_solve_bisection(0.0,10e-9,mp,N=100000)
 print("qt,tloc",qt,tloc)
 qf2_z2=fsolve(solve_tangent, [qt,tloc], \
-        args=(mp),xtol=1e-12)
+        args=(mp),xtol=1e-11)
 print("qf2,z2",qf2_z2[0],qf2_z2[1])
 err=solve_tangent(qf2_z2,mp)
 print("error:",err)
 meanerr=0.5*(abs(err[0])+abs(err[1]))
-if(meanerr < 1e-9):
+if(meanerr < solvertol):
     qt=qf2_z2[0]
     tloc=qf2_z2[1]
 else:
@@ -77,27 +78,36 @@ plt.legend()
 fig,ax=plt.subplots(2,2)
 #plasma solve
 print("solving intersect")
-#z1=fsolve(solve_intersect, [1.1*mp['dc_SI']], \
-#        args=(qt+dq,mp))[0]
 
 (intersectflag,zint)=intersect_solve_graphical(qt+delq,mp)
 if(intersectflag==False):
     print("does not intersect")
     sys.exit()
 
-#print("z1,zint:",z1,zint)
-z1=min(zint)
+z1_fs=fsolve(solve_intersect, [min(zint)], \
+        args=(qt+delq,mp))
+print("graph soln, fsolve soln:",min(zint),z1_fs[0])
+meanerr=abs(solve_intersect(z1_fs,qt+delq,mp)[0])
+print("intersect error:",meanerr)
+if(meanerr < solvertol):
+    z1=z1_fs[0]
+else:
+    print("intersect finding errors:",meanerr)
+    sys.exit()
 
 z2=tloc
 Npts_z=1000
 z1z2=np.linspace(z1,z2,Npts_z)
 qrelax=np.zeros(Npts_z)
 Te=np.zeros(Npts_z)+evtemp
-Te[0]=fsolve(solve_Te, [evtemp*10.0],args=(mp,z1z2[0]))[0]
+Te[0]=fsolve(solve_Te, [evtemp*2.0],args=(z1z2[0],mp))[0]
 ne_init=1e12
+ndiss_init=1e12
 nex_init=1e12
 ne=np.zeros(Npts_z-1)+ne_init
+ndiss=np.zeros(Npts_z)+ndiss_init
 nex=np.zeros(Npts_z)+nex_init
+
 vf=vp*mp['e_rest']
 dz=z1z2[1]-z1z2[0]
 print("dz,qin,delq,z1:",dz,qt,delq,z1)
@@ -106,33 +116,70 @@ q2=qt
 V1=paschen(mp['B'],mp['C'],mp['pres'],z1z2[0])
 V2=V1
 qrelax[0]=q1
+
+area_scaling=1.0
+discharge_area=get_acoll(vp,mp)
+max_area=np.pi*(mp['rp']**2)
+max_area_scaling=max_area/discharge_area
+
+print("max area scaling:",max_area_scaling)
+if(area_scaling < max_area_scaling):
+    discharge_area*=area_scaling
+else:
+    print("area scaling greater than max value of %f"%(max_area_scaling))
+    sys.exit(0)
+
 for i in range(Npts_z-1):
     #print(z1z2[i])
     #we are solving what happens between i and i+1
-    Te[i+1]=fsolve(solve_Te, [evtemp*10.0],args=(mp,z1z2[i+1]))[0]
+    #print("solving Te")
+    Te[i+1]=fsolve(solve_Te, [Te[i]],args=(z1z2[i+1],mp),xtol=1e-11)[0]
+    
+    if(abs(solve_Te([Te[i+1]],z1z2[i+1],mp)[0])>solvertol):
+        err=abs(solve_Te([Te[i+1]],z1z2[i+1],mp)[0])
+        print("electron temperature solve, not converging",err,solvertol)
+        sys.exit(0)
+
     Te_avg=0.5*(Te[i]+Te[i+1])
     rate_ionize=arrh_rate(mp['Aiz'],mp['alphaiz'],mp['Ta_iz'],Te_avg)
     rate_diss=arrh_rate(mp['Ad'],mp['alphad'],mp['Ta_d'],Te_avg)
+    rate_ex=arrh_rate(mp['Aex'],mp['alphaex'],mp['Ta_ex'],Te_avg)
     
     #print("Te,rate1,rate2:",Te[i],rate_ionize,rate_ex)
-    cbar=np.sqrt(8.0*kboltz*Te_avg/np.pi/melec)
-    radfactor=1.0
-    vol=np.pi*(mp['rp']**2)*z1z2[i]/radfactor**2
-    area=np.pi*(mp['rp']**2)/radfactor**2
-    q2=fsolve(solve_intersect_q, [qt], \
-        args=(z1z2[i+1],mp))[0]
+    
+    #radfactor=1
+    #discharge_vol=np.pi*(mp['rp']**2)*z1z2[i]/radfactor**2
+    #discharge_area=np.pi*(mp['rp']**2)/radfactor**2
+    
+    discharge_vol=discharge_area*z1z2[i]
+   
+    #print("solving q2")
+    q2=fsolve(solve_intersect_q, [1.1*q1], \
+        args=(z1z2[i+1],mp),xtol=1e-11)[0]
+    
+    #print("solved q intersect, error:", solve_intersect_q([q2],z1z2[i+1],mp))
+    if(abs(solve_intersect_q([q2],z1z2[i+1],mp)[0])>solvertol):
+        print("intersect q solve not converging")
+        sys.exit(0)
+
+    #print("solved q2",i)
     V2=paschen(mp['B'],mp['C'],mp['pres'],z1z2[i+1])
     delEdt=1.0/(8.0*np.pi*eps0*mp['rp'])*(q1**2-q2**2)/dz*vf
     
     #high pressure ambipolar solution
     Da=mp['D_i']*(1.0+Te_avg/mp['Temp'])
     Gama_by_n0=Da*np.pi/z1z2[i+1]
-    Eloss_c=rate_ionize*mp["NG"]*mp['Eiz']*echarge*vol+rate_diss*mp["NG"]*mp['Ed']*echarge*vol
-    Eloss_e=(2*kboltz*Te_avg)*2.0*Gama_by_n0*area
-    Eloss=Eloss_c+Eloss_e
+    Eloss_inel=rate_ionize*mp["NG"]*mp['Eiz']*echarge*discharge_vol+\
+            rate_diss*mp["NG"]*mp['Ed']*echarge*discharge_vol+\
+            rate_ex*mp["NG"]*mp['Eex']*echarge*discharge_vol
+
+    Eloss_el=1.5*kboltz*(Te_avg-mp['Temp'])*(2.0*melec)/mp['m_gas']*collfreq(Te_avg,mp)*discharge_vol
+    Eloss_w=(2*kboltz*Te_avg)*2.0*Gama_by_n0*discharge_area
+    Eloss=Eloss_inel+Eloss_w+Eloss_el
     
     ne[i]=mp["EJfrac"]*delEdt/Eloss
-    nex[i+1]=nex[i]+mp['dissmoles']*rate_diss*mp['NG']*ne[i]/vf*dz
+    ndiss[i+1]=ndiss[i]+mp['dissmoles']*rate_diss*mp['NG']*ne[i]/vf*dz
+    nex[i+1]=nex[i]+rate_ex*mp['NG']*ne[i]/vf*dz
     qrelax[i+1]=q2
     q1=np.copy(q2)
 
@@ -150,8 +197,11 @@ ax[1][0].set_title("N density (#/m3)")
 #ax[1][0].set_xscale("log")
 ax[1][0].set_yscale("log")
 #ax[1][0].set_ylim(1e12,1e22)
-ax[1][0].plot(z1z2,nex,linewidth=3)
+ax[1][0].plot(z1z2,ndiss,linewidth=3,label="dissociated")
+ax[1][0].plot(z1z2,nex,linewidth=3,label="excited")
 ax[1][0].set_xlabel("Distance (m)")
+ax[1][0].legend()
+print("ndiss max/min:",np.max(ndiss),np.min(ndiss))
 print("nex max/min:",np.max(nex),np.min(nex))
 
 #plt.xscale("log")
@@ -162,16 +212,17 @@ ax[1][1].set_xlabel("Distance (m)")
 print("qrelax max/min:",np.max(qrelax),np.min(qrelax))
 plt.tight_layout()
 
-np.savetxt("spec_mult.dat",np.transpose(np.vstack((z1z2,z1z2/np.max(z1z2),nex))),delimiter="  ")
+np.savetxt("spec_mult.dat",np.transpose(np.vstack((z1z2,z1z2/np.max(z1z2),ndiss))),delimiter="  ")
 
 outfile=open("rundata_multi","a")
 outfile.write("%e\t%e\t%e\t%e\t"%(vp,mp['solidsvfrac'],mp['rp'],mp['cht']))
 outfile.write("%e\t%e\t"%(delq,qt))
 outfile.write("%e\t%e\t"%(z1z2[0],z1z2[-1]))
-outfile.write("%e\t%e\t%e\t%e\t%e\t%e\t"%(np.max(Te),np.mean(Te),np.max(ne),np.mean(ne),np.max(nex),np.mean(nex)))
+outfile.write("%e\t%e\t%e\t%e\t%e\t%e\t%e\t%e\t"%(np.max(Te),np.mean(Te),np.max(ne),np.mean(ne),\
+        np.max(ndiss),np.mean(ndiss),np.max(nex),np.mean(nex)))
 outfile.write("%e\t%e\n"%(np.max(qrelax),np.min(qrelax)))
 outfile.close()
 
 plt.figure()
 plt.plot(0.5*(z1z2[1:]+z1z2[0:-1]),ne,'r*')
-plt.show()
+#plt.show()

@@ -2,6 +2,7 @@ import scipy
 import numpy as np
 from scipy.optimize import fsolve
 from constants import *
+from scipy.interpolate import interp1d
 
 def setmodelparams():
     modelParams = {}
@@ -62,14 +63,14 @@ def setmodelparams():
     modelParams['nu_wall'] = 0.5*modelParams['E_wall']/modelParams['G_wall']-1.0
     modelParams['rho_wall'] =2700.0 #kg/m3
 
-    modelParams['rp']=0.002 #particle radius (1 mm)
-    modelParams['cht']=0.25 #channel size (25 cm)
+    modelParams['rp']=0.0015 #particle radius (1 mm)
+    modelParams['cht']=0.15 #channel size (25 cm)
     
     # bulk potential on?
     modelParams['bulkpot']=0
     
     # solids volume fraction
-    modelParams['solidsvfrac']=0.03 #dilute granular flow
+    modelParams['solidsvfrac']=0.01 #dilute granular flow
 
     #Paschen breakdown in N2 atmosphere, Raizer's texbook
     #fit of N2 curve
@@ -111,7 +112,24 @@ def setmodelparams():
     modelParams['Ta_iz']=1.81e5 #K
     modelParams['Ta_d']=1.132e5 #K
     modelParams['m_ion']=28.0*mprot #N2+ ion
+    modelParams['m_gas']=28.0*mprot #N2
+    #All vibrational states excitation from
+    #Zuowei et al 2014 Plasma Sci. Technol. 16 335
+    #Simulation of Capacitively Coupled Dual- Frequency 
+    #N2, O2, N2/O2 Discharges: Effects of External 
+    #Parameters on Plasma Characteristics
+    #this is for N2(A)
+    modelParams['Eex']=6.17 #Vibrational excitation (eV)
+    modelParams['alphaex']=0.0
+    modelParams['Aex']=4.05e-15
+    modelParams['Ta_ex']=5.36*evtemp
     modelParams['dissmoles']=2.0
+    collfreq_data=np.loadtxt("meanenrg_vs_collfreqbyN_N2plasma")
+    #this is for N2(a')
+    #modelParams['Eex']=8.4 #Vibrational excitation (eV)
+    #modelParams['alphaex']=0.0
+    #modelParams['Aex']=1.47e-15
+    #modelParams['Ta_ex']=8.79*evtemp
     
     #an averaged value from co2chem at std conditions
     #fit to BOLSIG run
@@ -124,8 +142,16 @@ def setmodelparams():
     modelParams['Ad']=1.0e-17
     modelParams['Ta_iz']=185672.0 #K
     modelParams['Ta_d']=34813.51 #K
-    modelParams['m_ion']=44.0*mprot #N2+ ion
-    modelParams['dissmoles']=1.0'''
+    modelParams['m_ion']=44.0*mprot #CO2+ ion
+    modelParams['m_gas']=44.0*mprot #CO2
+    modelParams['Eex']=6.17 
+    modelParams['alphaex']=0.0
+    modelParams['Aex']=0.0
+    modelParams['Ta_ex']=62200.15
+    modelParams['dissmoles']=1.0
+    collfreq_data=np.loadtxt("meanenrg_vs_collfreqbyN_CO2plasma")'''
+
+    modelParams["collfreq_interp"]=interp1d(collfreq_data[:,0],collfreq_data[:,1],fill_value="extrapolate")
 
     modelParams['pdc_SI']=modelParams['pdc']*1e-3*101325.0/760.0 #Pa m
     modelParams['dc_SI']=modelParams['pdc_SI']/modelParams['pres']

@@ -2,6 +2,13 @@ import scipy
 import numpy as np
 from constants import *
 
+def collfreq(Te_in_K,mp):
+    Te_in_ev=Te_in_K/evtemp
+    mean_energ=1.5*Te_in_ev
+    gasden=mp['pres']/kboltz/mp['Temp']
+    freq=mp["collfreq_interp"](mean_energ)*gasden
+    return(freq)
+
 def bulkpot(mp,q,z):
     bpflag=mp['bulkpot']
     numden=mp['solidsvfrac']/(4/3*np.pi*mp['rp']**3)
@@ -38,9 +45,13 @@ def imagebulkpot_arr(q,rp,z,mp):
         Vimg2[i]=imagebulkpot(q,rp,z[i],mp)
     return(Vimg1,Vimg2)
 
-def contact_charge(q,vp,mp):
+def get_acoll(vp,mp):
     A_coll=1.36*(mp['el_p']*mp['rho_part'])**(2/5)
     A_coll*=4.0*(mp['rp']**2)*(vp**(4/5))
+    return(A_coll)
+
+def contact_charge(q,vp,mp):
+    A_coll=get_acoll(vp,mp)
     #print("collratio:",A_coll/(np.pi*mp['rp']**2))
     Vc=mp['delphi']
     Vb=bulkpot(mp,q,mp['delc'])
