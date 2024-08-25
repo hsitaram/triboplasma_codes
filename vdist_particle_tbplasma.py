@@ -19,7 +19,7 @@ grantemp=100.0 #m2/s2
 mp=setmodelparams()
 mp['bulkpot']=1
 veldist_avg=np.sqrt(8.0*grantemp/np.pi)
-Npartitions=10
+Npartitions=20
 velparts=np.linspace(0.0,\
         3.0*veldist_avg,Npartitions+1)
 vpmidarr=0.5*(velparts[0:-1]+velparts[1:])
@@ -99,21 +99,27 @@ ne=np.zeros((Npartitions,Npts_z-1))+ne_init
 ndiss=np.zeros((Npartitions,Npts_z))+ndiss_init
 nex=np.zeros((Npartitions,Npts_z))+nex_init
 
-
-
 for pt in range(Npartitions):
     lineset=[]
     vp=0.5*(velparts[pt]+velparts[pt+1])
     dq=delq[pt]
-    #print("solving intersect,dq:",dq)
-    #z1=fsolve(solve_intersect, [1.1*mp['dc_SI']], \
-    #        args=(qt+dq,mp))[0]
+    
     (intersectflag,zint)=intersect_solve_graphical(qt+dq,mp)
     if(intersectflag==False):
         print("does not intersect")
         sys.exit()
+    z1_fs=fsolve(solve_intersect, [min(zint)], \
+        args=(qt+dq,mp))
+    print("graph soln, fsolve soln:",min(zint),z1_fs[0])
+    meanerr=abs(solve_intersect(z1_fs,qt+dq,mp)[0])
+    print("intersect error:",meanerr)
+    if(meanerr < solvertol):
+        z1[pt]=z1_fs[0]
+    else:
+        print("intersect finding errors:",meanerr)
+        print("xxxxxxxxxxxxxxxxxxxxx")
+        sys.exit()
 
-    z1[pt]=min(zint)
     z2=tloc
     #print("z1,z2:",z1,z2)
     z1z2=np.linspace(z1[pt],z2,Npts_z)
@@ -183,6 +189,11 @@ for pt in range(Npartitions):
         ne[pt][i]=mp["EJfrac"]*delEdt/Eloss
         ndiss[pt][i+1]=ndiss[pt][i]+mp['dissmoles']*rate_diss*mp['NG']*ne[pt][i]/vf*dz
         nex[pt][i+1]=nex[pt][i]+rate_ex*mp['NG']*ne[pt][i]/vf*dz
+    
+        #correcting number density from moving boundary volume increase
+        ndiss[pt][i+1]-=ndiss[pt][i]*dz/z1z2[i+1]
+        nex[pt][i+1]-=nex[pt][i]*dz/z1z2[i+1]
+
         qrelax[pt][i+1]=q2
         q1=np.copy(q2)
         

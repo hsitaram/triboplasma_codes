@@ -130,6 +130,11 @@ for i in range(Npts_z-1):
     ne[i]=mp["EJfrac"]*delEdt/Eloss
     ndiss[i+1]=ndiss[i]+mp["dissmoles"]*rate_diss*mp['NG']*ne[i]/vf*dz
     nex[i+1]=nex[i]+rate_ex*mp['NG']*ne[i]/vf*dz
+    
+    #correcting number density from moving boundary volume increase
+    ndiss[i+1]-=ndiss[i]*dz/z1z2[i+1]
+    nex[i+1]-=nex[i]*dz/z1z2[i+1]
+
     qrelax[i+1]=q2
     q1=np.copy(q2)
 
