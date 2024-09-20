@@ -5,12 +5,15 @@ from model_parameters import *
 from electrostatics import *
 from nonlinsolvers import *
 from distfuncs import *
+import matplotlib.ticker as ticker
 
 #main
+m_to_mm=1e3
+nmin=1e12
 font={'family':'Helvetica', 'size':'14'}
 mpl.rc('font',**font)
-mpl.rc('xtick',labelsize=14)
-mpl.rc('ytick',labelsize=14)
+mpl.rc('xtick',labelsize=22)
+mpl.rc('ytick',labelsize=22)
 
 mp=setmodelparams()
 mp['bulkpot']=0
@@ -42,14 +45,14 @@ Vimg_postcoll,Vtot_postcoll=imagebulkpot_arr(qt+delq,mp['rp'],zp,mp)
 
 np.savetxt("pascurve.dat",np.transpose(np.vstack((zp,Vbr))),delimiter="  ")
 plt.figure()
-plt.plot(zp,Vbr,color="black",linestyle="dashed",label="Paschen curve",linewidth=3)
+plt.plot(zp*m_to_mm,Vbr,color="black",linestyle="dashed",label="Paschen curve",linewidth=3)
 #plt.plot(zp[int(0.625*len(zp)):],Vimg_tangent[int(0.625*len(zp)):],color="blue",linestyle="dotted",label="tangent img",linewidth=3)
-plt.plot(zp,Vimg_tangent,color="blue",linestyle="dotted",label="tangent img",linewidth=3)
+plt.plot(zp*m_to_mm,Vimg_tangent,color="blue",linestyle="dotted",label="tangent img",linewidth=3)
 #plt.plot(zp[0:int(3.75*len(zp)/10)],Vimg_postcoll[0:int(3.75*len(zp)/10)],color="red",label="post-coll",linewidth=3)
-plt.plot(zp,Vimg_postcoll,color="red",label="post-coll",linewidth=3)
+plt.plot(zp*m_to_mm,Vimg_postcoll,color="red",label="post-coll",linewidth=3)
 #plt.plot(zp,Vtot_tangent,color="blue",label="tangent total")
 
-fig,ax=plt.subplots(2,2,figsize=(8,8))
+fig,ax=plt.subplots(3,1,figsize=(4,9))
 #plasma solve
 #dq=contact_charge(charge,vp,mp)
 print("solving intersect")
@@ -70,9 +73,9 @@ z1z2=np.linspace(z1,z2,Npts_z)
 qrelax=np.zeros(Npts_z)
 Te=np.zeros(Npts_z)+evtemp
 Te[0]=fsolve(solve_Te, [evtemp*10.0],args=(z1z2[0],mp))[0]
-ne_init=1e12
-nex_init=1e12
-ndiss_init=1e12
+ne_init=nmin
+nex_init=nmin
+ndiss_init=nmin
 ne=np.zeros(Npts_z-1)+ne_init
 nex=np.zeros(Npts_z)+nex_init
 ndiss=np.zeros(Npts_z)+ndiss_init
@@ -138,30 +141,35 @@ for i in range(Npts_z-1):
     qrelax[i+1]=q2
     q1=np.copy(q2)
 
-ax[0][0].plot(z1z2[:],Te[:],linewidth=2)
-print("Te max/min:",np.max(Te),np.min(Te))
+ax[0].plot(z1z2[:]*m_to_mm,Te[:],linewidth=3)
+ax[0].yaxis.set_major_locator(ticker.MaxNLocator(3))
+
+print("Te max/min/mean:",np.max(Te),np.min(Te),np.mean(Te))
 
 #ax[0][1].set_xscale("log")
-ax[0][1].set_yscale("log")
-ax[0][1].plot(0.5*(z1z2[1:]+z1z2[0:-1]),ne,'r-',linewidth=3)
-print("ne max/min:",np.max(ne),np.min(ne))
+ax[1].set_yscale("log")
+ax[1].plot(0.5*(z1z2[1:]+z1z2[0:-1])*m_to_mm,ne,'r-',linewidth=3)
+#ax[1].yaxis.set_major_locator(ticker.MaxNLocator(3))
+print("ne max/min/mean:",np.max(ne),np.min(ne),np.mean(ne))
 
 #ax[1][0].set_xscale("log")
-ax[1][0].set_yscale("log")
+ax[2].set_yscale("log")
 #ax[1][0].set_ylim(1e12,1e22)
-ax[1][0].plot(z1z2,ndiss,linewidth=3,label="dissociated")
-ax[1][0].plot(z1z2,nex,linewidth=3,label="excited")
-ax[1][0].legend()
+ax[2].plot(z1z2*m_to_mm,ndiss,linewidth=3,label="N")
+ax[2].plot(z1z2*m_to_mm,nex,linewidth=3,label="$\mathrm{N_2(ex)}$")
+#ax[2].yaxis.set_major_locator(ticker.MaxNLocator(3))
+ax[2].legend()
 print("ndiss max/min:",np.max(ndiss),np.min(ndiss))
 print("nex max/min:",np.max(nex),np.min(nex))
 
 #plt.xscale("log")
 #plt.yscale("log")
-ax[1][1].plot(z1z2,qrelax,linewidth=3)
+#ax[3].plot(z1z2*m_to_mm,qrelax,linewidth=3)
 print("qrelax max/min:",np.max(qrelax),np.min(qrelax))
     
 np.savetxt("spec_single.dat",np.transpose(np.vstack((z1z2,z1z2/np.max(z1z2),nex,ndiss,qrelax))),delimiter="  ")
 
 plt.figure()
 plt.plot(0.5*(z1z2[1:]+z1z2[0:-1]),ne,'r*')
+plt.tight_layout()
 plt.show()

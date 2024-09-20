@@ -6,35 +6,44 @@ from electrostatics import *
 from nonlinsolvers import *
 from distfuncs import *
 from matplotlib.collections import LineCollection
+from sys import argv
+import matplotlib.pyplot as pl
 
 #main
+m_to_mm=1e3
 solvertol=1e-8
 font={'family':'Helvetica', 'size':'15'}
 mpl.rc('font',**font)
 mpl.rc('xtick',labelsize=15)
 mpl.rc('ytick',labelsize=15)
 
-grantemp=100.0 #m2/s2
+grantemp=float(argv[1]) #m2/s2
 
 mp=setmodelparams()
+mp['solidsvfrac']=float(argv[2])
+mp['rp']=float(argv[3])
+Npartitions=int(argv[4])
+colors = pl.cm.jet(np.linspace(0,1,Npartitions))
 mp['bulkpot']=1
 veldist_avg=np.sqrt(8.0*grantemp/np.pi)
-Npartitions=20
 velparts=np.linspace(0.0,\
         3.0*veldist_avg,Npartitions+1)
 vpmidarr=0.5*(velparts[0:-1]+velparts[1:])
+dvelparts=velparts[1]-velparts[0]
 
 cdist=collidingdist(velparts,grantemp)
 print("cdist:",cdist)
 print("gaussdist integral:",np.trapz(cdist,velparts))
 numberden=mp['solidsvfrac']/(4/3*np.pi*mp['rp']**3)
 print("numberden:",numberden)
+print("vpmidarr:",vpmidarr)
 
 Nparts=np.zeros(Npartitions)
 for pt in range(Npartitions):
     Nparts[pt]=numberden*collidingdist(0.5*(velparts[pt]+velparts[pt+1]),\
-            grantemp)
+            grantemp)*dvelparts
 
+print("sum of nparts, numden:",np.sum(Nparts),numberden)
 qpart=np.zeros(Npartitions)
 
 (qt,tloc)=tangent_solve_bisection(0.0,60e-9,mp,N=10000)
@@ -90,6 +99,7 @@ plt.gca().set_prop_cycle(plt.cycler('color', plt.cm.jet(np.linspace(0, 1, Nparti
 
 Npts_z=1000
 z1=np.zeros(Npartitions)
+acoll_arr=np.zeros(Npartitions)
 qrelax=np.zeros((Npartitions,Npts_z))
 ne_init=1e12
 ndiss_init=1e12
@@ -141,6 +151,7 @@ for pt in range(Npartitions):
     else:
         print("area scaling greater than max value of %f"%(max_area_scaling))
         sys.exit(0)
+    acoll_arr[pt]=discharge_area
 
     for i in range(Npts_z-1):
         #print(z1z2[i])
@@ -162,6 +173,10 @@ for pt in range(Npartitions):
         q2=fsolve(solve_intersect_q, [1.1*q1], \
         args=(z1z2[i+1],mp))[0]
         delEdt=1.0/(8.0*np.pi*eps0*mp['rp'])*(q1**2-q2**2)/dz*vf
+
+        if(delEdt < 0.0):
+            print("delEdt less than 0",delEdt)
+            sys.exit(0)
     
         #high pressure ambipolar solution
         Da=mp['D_i']*(1.0+Te_avg/mp['Temp'])
@@ -204,23 +219,42 @@ for pt in range(Npartitions):
             np.max(nex[pt][:]), np.min(nex[pt][:]), \
             np.max(Te[pt][:]),np.min(Te[pt][:]))
 
-    ax[0][0].plot(z1z2,Te[pt][:],linewidth=2)
+    ax[0][0].plot(z1z2*m_to_mm,Te[pt][:],linewidth=2,color=colors[pt])
 
-    ax[0][1].set_xscale("log")
-    ax[0][1].set_yscale("log")
-    ax[0][1].plot(0.5*(z1z2[1:]+z1z2[0:-1]),ne[pt][:],linewidth=2)
+    #ax[0][1].set_xscale("log")
+    #ax[0][1].set_yscale("log")
+    ax[0][1].plot(0.5*(z1z2[1:]+z1z2[0:-1])*m_to_mm,ne[pt][:],linewidth=2,color=colors[pt])
     tmparr=np.transpose(np.vstack((0.5*(z1z2[1:]+z1z2[0:-1]),ne[pt][:])))
  
     lineset.append(tmparr)
 
-    ax[1][0].set_xscale("log")
-    ax[1][0].set_yscale("log")
+    #ax[1][0].set_xscale("log")
+    #ax[1][0].set_yscale("log")
     #ax[1][0].set_ylim(1e12,1e22)
-    ax[1][0].plot(z1z2,nex[pt][:],linewidth=2)
+    ax[1][0].plot(z1z2*m_to_mm,nex[pt][:],linewidth=2,color=colors[pt])
 
     #plt.xscale("log")
     #plt.yscale("log")
-    ax[1][1].plot(z1z2,qrelax[pt][:],linewidth=2)
+    ax[1][1].plot(z1z2*m_to_mm,qrelax[pt][:],linewidth=2,color=colors[pt])
+
+
+#find excited and dissociated species flux
+cbar=veldist_avg
+ndissV=np.zeros(Npartitions)
+nexV=np.zeros(Npartitions)
+for pt in range(Npartitions):
+    ndissV[pt]=(0.25*numberden*cbar)*collidingdist(0.5*(velparts[pt]+velparts[pt+1]),\
+            grantemp)*ndiss[pt][-1]*tloc*acoll_arr[pt]
+    nexV[pt]=(0.25*numberden*cbar)*collidingdist(0.5*(velparts[pt]+velparts[pt+1]),\
+            grantemp)*nex[pt][-1]*tloc*acoll_arr[pt]
+
+
+outfile=open("rundata_vdist","a")
+exflux=np.trapz(nexV,vpmidarr)/Navogadro
+dissflux=np.trapz(ndissV,vpmidarr)/Navogadro
+outfile.write("%e\t%e\t%e\t%e\t%e\n"%(grantemp,mp['solidsvfrac'],mp['rp'],exflux,dissflux))
+print("excited specie flux (mol/m2/s):",exflux)
+print("dissociated specie flux (mol/m2/s):",dissflux)
 
 '''line_segments = LineCollection(lineset,linewidths=(0.5, 1, 1.5, 2),cmap='coolwarm',linestyles='solid')
 line_segments.set_array(vpmidarr)

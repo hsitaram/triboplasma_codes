@@ -81,7 +81,9 @@ def setmodelparams():
     #modelParams['Vmin'] =  540.0 #V
     #modelParams['pdc']  = 5.0 #mmTorr
     
-    # Matsuyama and Yamamoto, JphysD, 28, 1995
+    #Investigating the Influence of Friction and Material 
+    #Wear on Triboelectric Charge Transfer in Metal–Polymer Contacts
+    #Tribology Letters (2022) 70:46
     #work function for Al (4.26 eV) vs PTFE (5.80 eV)
     modelParams['delphi']=1.54 #eV
     #work function for Cd (4.08 eV) vs PTFE (5.80 eV)

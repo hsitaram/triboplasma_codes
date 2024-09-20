@@ -8,3 +8,4 @@ kboltz=scipy.constants.k
 evtemp=echarge/kboltz
 melec=scipy.constants.m_e
 mprot=scipy.constants.m_p
+Navogadro=scipy.constants.N_A

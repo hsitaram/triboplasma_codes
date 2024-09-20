@@ -8,11 +8,12 @@ from nonlinsolvers import *
 from distfuncs import *
 
 #main
+m_to_mm=1e3
 solvertol=1e-8
-font={'family':'Helvetica', 'size':'15'}
+font={'family':'Helvetica', 'size':'22'}
 mpl.rc('font',**font)
-mpl.rc('xtick',labelsize=15)
-mpl.rc('ytick',labelsize=15)
+mpl.rc('xtick',labelsize=22)
+mpl.rc('ytick',labelsize=22)
 
 mp=setmodelparams()
 mp['bulkpot']=1
@@ -65,17 +66,18 @@ while(charge < qt):
 print("charge,ncoll",charge,ncoll)'''
 
 
-plt.figure()
-plt.xlabel("Distance (m)")
-plt.ylabel("Potential (V)")
-plt.plot(zp,Vbr,color="black",linestyle="dashed",label="Paschen curve",linewidth=3)
-plt.plot(zp,Vimg_tangent,color="blue",linestyle="dashdot",label="$V_{img}(q_{f2},z)$",linewidth=3)
-plt.plot(zp,Vtot_tangent,color="blue",label="$V_{img}(q_{f2},z)+V_b(q_{f2},z)$")
+plt.figure(figsize=(4,5))
+#plt.xlabel("Distance (mm)")
+#plt.ylabel("Potential (V)")
+plt.plot(zp*m_to_mm,Vbr,color="black",linestyle="dashed",label="Paschen curve",linewidth=3)
+plt.plot(zp*m_to_mm,Vimg_tangent,color="blue",linestyle="dashdot",label="$V_{img}(q_{f},z)$",linewidth=3)
+plt.plot(zp*m_to_mm,Vtot_tangent,color="blue",label="$V_{img}(q_{f},z)+V_b(q_{f},z)$", linewidth=3)
 #plt.plot(zp,Vimg_postcoll,color="red",label="post-coll image")
-plt.plot(zp,Vtot_postcoll,color="red",label="post-collision")
-plt.legend()
+#plt.plot(zp*m_to_mm,Vtot_postcoll,color="red",label="post-collision",linewidth=3)
+#plt.tight_layout()
+#plt.legend()
 
-fig,ax=plt.subplots(2,2)
+fig,ax=plt.subplots(2,2,figsize=(9,9))
 #plasma solve
 print("solving intersect")
 
@@ -188,34 +190,34 @@ for i in range(Npts_z-1):
     qrelax[i+1]=q2
     q1=np.copy(q2)
 
-ax[0][0].set_title("Electron temperature (K)")
-ax[0][0].plot(z1z2[:],Te[:],linewidth=3)
-print("Te max/min:",np.max(Te),np.min(Te))
+#ax[0][0].set_title("Electron temperature (K)")
+ax[0][0].plot(z1z2[:]*m_to_mm,Te[:],linewidth=3)
+print("Te max/min/mean:",np.max(Te),np.min(Te),np.mean(Te))
 
-ax[0][1].set_title("Electron density (#/m3)")
+#ax[0][1].set_title("Electron density (#/m3)")
 #ax[0][1].set_xscale("log")
 ax[0][1].set_yscale("log")
-ax[0][1].plot(0.5*(z1z2[1:]+z1z2[0:-1]),ne,'r-',linewidth=3)
-print("ne max/min:",np.max(ne),np.min(ne))
+ax[0][1].plot(0.5*(z1z2[1:]+z1z2[0:-1])*m_to_mm,ne,'r-',linewidth=3)
+print("ne max/min/mean:",np.max(ne),np.min(ne),np.mean(ne))
 
-ax[1][0].set_title("N density (#/m3)")
+#ax[1][0].set_title("N density (#/m3)")
 #ax[1][0].set_xscale("log")
 ax[1][0].set_yscale("log")
 #ax[1][0].set_ylim(1e12,1e22)
-ax[1][0].plot(z1z2,ndiss,linewidth=3,label="dissociated")
-ax[1][0].plot(z1z2,nex,linewidth=3,label="excited")
-ax[1][0].set_xlabel("Distance (m)")
+ax[1][0].plot(z1z2*m_to_mm,ndiss,linewidth=3,label="N")
+ax[1][0].plot(z1z2*m_to_mm,nex,linewidth=3,label="$\mathrm{N_2(ex)}$")
+ax[1][0].set_xlabel("Distance (mm)")
 ax[1][0].legend()
 print("ndiss max/min:",np.max(ndiss),np.min(ndiss))
 print("nex max/min:",np.max(nex),np.min(nex))
+plt.tight_layout()
 
 #plt.xscale("log")
 #plt.yscale("log")
-ax[1][1].set_title("Particle charge (nC)")
-ax[1][1].plot(z1z2,qrelax*1e9,linewidth=3)
-ax[1][1].set_xlabel("Distance (m)")
+#ax[1][1].set_title("Particle charge (nC)")
+ax[1][1].plot(z1z2*m_to_mm,qrelax*1e9,linewidth=3)
+ax[1][1].set_xlabel("Distance (mm)")
 print("qrelax max/min:",np.max(qrelax),np.min(qrelax))
-plt.tight_layout()
 
 np.savetxt("spec_mult.dat",np.transpose(np.vstack((z1z2,z1z2/np.max(z1z2),ndiss))),delimiter="  ")
 
@@ -230,4 +232,4 @@ outfile.close()
 
 plt.figure()
 plt.plot(0.5*(z1z2[1:]+z1z2[0:-1]),ne,'r*')
-#plt.show()
+plt.show()
