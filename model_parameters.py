@@ -127,11 +127,6 @@ def setmodelparams():
     modelParams['Ta_ex']=5.36*evtemp
     modelParams['dissmoles']=2.0
     collfreq_data=np.loadtxt("meanenrg_vs_collfreqbyN_N2plasma")
-    #this is for N2(a')
-    #modelParams['Eex']=8.4 #Vibrational excitation (eV)
-    #modelParams['alphaex']=0.0
-    #modelParams['Aex']=1.47e-15
-    #modelParams['Ta_ex']=8.79*evtemp
     
     #an averaged value from co2chem at std conditions
     #fit to BOLSIG run

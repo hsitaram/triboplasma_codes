@@ -61,3 +61,13 @@ def contact_charge(q,vp,mp):
     delq=eps0*A_coll/mp['delc']*(Vc-Ve-Vb) #Vb included in Ve
     delq=delq*mp['k_c']
     return(delq)
+
+def eqbm_charge(vp,mp):
+    A_coll=get_acoll(vp,mp)
+    Vc=mp['delphi']
+    #use charge=1 to get Vb and Ve 
+    #per unit charge
+    Vb=bulkpot(mp,1.0,mp['delc'])
+    Ve=imagepot(1.0,mp['rp'],mp['delc'],mp)
+    q_eqbm=Vc/(Ve+Vb)
+    return(q_eqbm)
